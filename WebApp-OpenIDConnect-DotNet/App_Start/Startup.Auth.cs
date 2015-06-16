@@ -27,24 +27,23 @@ using Microsoft.Owin.Security.OpenIdConnect;
 using System.Configuration;
 using System.Globalization;
 using System.Threading.Tasks;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.Owin.Security.Notifications;
+using System.IdentityModel.Tokens;
+using System.Net.Http;
+using WebApp_OpenIDConnect_DotNet.Utils;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using System.Security.Claims;
 
 namespace WebApp_OpenIDConnect_DotNet
 {
     public partial class Startup
     {
-        //
-        // The Client ID is used by the application to uniquely identify itself to Azure AD.
-        // The Metadata Address is used by the application to retrieve the signing keys used by Azure AD.
-        // The AAD Instance is the instance of Azure, for example public Azure or Azure China.
-        // The Authority is the sign-in URL of the tenant.
-        // The Post Logout Redirect Uri is the URL where the user will be redirected after they sign out.
-        //
-        private static string clientId = ConfigurationManager.AppSettings["ida:ClientId"];
-        private static string aadInstance = ConfigurationManager.AppSettings["ida:AADInstance"];
-        private static string tenant = ConfigurationManager.AppSettings["ida:Tenant"];
+        public static string clientId = ConfigurationManager.AppSettings["ida:ClientId"];
+        public static string clientSecret = ConfigurationManager.AppSettings["ida:ClientSecret"];
+        public static string aadInstance = ConfigurationManager.AppSettings["ida:AADInstance"];
         private static string postLogoutRedirectUri = ConfigurationManager.AppSettings["ida:PostLogoutRedirectUri"];
-
-        string authority = String.Format(CultureInfo.InvariantCulture, aadInstance, tenant);
+        public static string[] outlookScopes = new[] { "https://outlook.office.com/Mail.Read" };
 
         public void ConfigureAuth(IAppBuilder app)
         {
@@ -52,22 +51,63 @@ namespace WebApp_OpenIDConnect_DotNet
 
             app.UseCookieAuthentication(new CookieAuthenticationOptions());
 
+            var configManager = new ConfigurationManager<OpenIdConnectConfiguration>("https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration?slice=testslice&msaproxy=true", new HttpClient());
+            var config = configManager.GetConfigurationAsync().Result;
+            config.AuthorizationEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+
             app.UseOpenIdConnectAuthentication(
                 new OpenIdConnectAuthenticationOptions
                 {
                     ClientId = clientId,
-                    Authority = authority,
+                    Authority = String.Format(CultureInfo.InvariantCulture, aadInstance, "common"),
+                    Scope = "openid " + outlookScopes[0],
+                    RedirectUri = postLogoutRedirectUri,
                     PostLogoutRedirectUri = postLogoutRedirectUri,
+                    Configuration = config,
+                    TokenValidationParameters = new TokenValidationParameters
+                    {
+                        IssuerValidator = ProxyIssuerValidator,
+                        //NameClaimType = JwtRegisteredClaimNames.Email //User.Identity.Name not populated correctly.
+                    },
                     Notifications = new OpenIdConnectAuthenticationNotifications
                     {
-                        AuthenticationFailed = context => 
-                        {
-                            context.HandleResponse();
-                            context.Response.Redirect("/Error?message=" + context.Exception.Message);
-                            return Task.FromResult(0);
-                        }
+                        AuthenticationFailed = OnAuthenticationFailed,
+                        RedirectToIdentityProvider = OnRedirectToIdentityProvider,
+                        AuthorizationCodeReceived = OnAuthorizationCodeReceived
                     }
                 });
+        }
+
+        private async Task OnAuthorizationCodeReceived(AuthorizationCodeReceivedNotification notification)
+        {
+            string userObjectId = notification.AuthenticationTicket.Identity.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            string tenantID = notification.AuthenticationTicket.Identity.FindFirst("http://schemas.microsoft.com/identity/claims/tenantid").Value;
+            string authority = String.Format(CultureInfo.InvariantCulture, aadInstance, tenantID);
+            ClientCredential cred = new ClientCredential(clientId, clientSecret);
+            var authContext = new Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext(authority, new NaiveSessionCache(userObjectId));
+            var authResult = await authContext.AcquireTokenByAuthorizationCodeAsync(notification.Code, new Uri(postLogoutRedirectUri), cred, outlookScopes, "slice=testslice&msaproxy=true&nux=1");
+        }
+
+        private string ProxyIssuerValidator(string issuer, SecurityToken securityToken, TokenValidationParameters validationParameters)
+        {
+            if (issuer.Contains("login.microsoftonline.com"))
+                return issuer;
+            throw new SecurityTokenValidationException("Unrecognized issuer.");
+        }
+
+        private Task OnAuthenticationFailed(AuthenticationFailedNotification<OpenIdConnectMessage, OpenIdConnectAuthenticationOptions> notification)
+        {
+            notification.HandleResponse();
+            notification.Response.Redirect("/Error?message=" + notification.Exception.Message);
+            return Task.FromResult(0);
+        }
+
+        private Task OnRedirectToIdentityProvider(RedirectToIdentityProviderNotification<OpenIdConnectMessage, OpenIdConnectAuthenticationOptions> notification)
+        {
+            notification.ProtocolMessage.SetParameter("nux", "1");
+            notification.ProtocolMessage.SetParameter("msaproxy", "true");
+            notification.ProtocolMessage.SetParameter("slice", "testslice");
+            return Task.FromResult(0);
         }
     }
 }
