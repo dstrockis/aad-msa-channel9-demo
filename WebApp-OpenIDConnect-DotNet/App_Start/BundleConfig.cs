@@ -1,7 +1,7 @@
 ﻿using System.Web;
 using System.Web.Optimization;
 
-namespace WebApp_OpenIDConnect_DotNet
+namespace TodoList_WebApp
 {
     public class BundleConfig
     {

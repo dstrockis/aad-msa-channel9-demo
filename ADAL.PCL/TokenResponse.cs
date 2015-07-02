@@ -36,7 +36,8 @@ namespace Microsoft.IdentityModel.Clients.ActiveDirectory
         public const string ProfileInfo = "profile_info";
         public const string CreatedOn = "created_on";
         public const string ExpiresOn = "expires_on";
-        public const string ExpiresIn = "expires_in";
+        public const string ExpiresIn = "id_token_expires_in";
+        //public const string ExpiresIn = "expires_in";
         public const string Error = "error";
         public const string ErrorDescription = "error_description";
         public const string ErrorCodes = "error_codes";

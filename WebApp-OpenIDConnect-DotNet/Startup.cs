@@ -19,9 +19,9 @@ using System.Threading.Tasks;
 using Microsoft.Owin;
 using Owin;
 
-[assembly: OwinStartup(typeof(WebApp_OpenIDConnect_DotNet.Startup))]
+[assembly: OwinStartup(typeof(TodoList_WebApp.Startup))]
 
-namespace WebApp_OpenIDConnect_DotNet
+namespace TodoList_WebApp
 {
     public partial class Startup
     {

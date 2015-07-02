@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Web;
 
-namespace WebApp_OpenIDConnect_DotNet.Utils
+namespace TodoList_WebApp.Utils
 {
     public class NaiveSessionCache : TokenCache
     {

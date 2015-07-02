@@ -5,7 +5,7 @@ using System.Security.Claims;
 using System.Web;
 using System.Web.Mvc;
 
-namespace WebApp_OpenIDConnect_DotNet.Controllers
+namespace TodoList_WebApp.Controllers
 {
     
     public class HomeController : Controller
