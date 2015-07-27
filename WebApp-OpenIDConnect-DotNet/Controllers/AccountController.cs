@@ -24,6 +24,7 @@ using System.Web.Mvc;
 using Microsoft.Owin.Security.Cookies;
 using Microsoft.Owin.Security.OpenIdConnect;
 using Microsoft.Owin.Security;
+using WebApp_OpenIDConnect_DotNet.App_Start;
 
 namespace WebApp_OpenIDConnect_DotNet.Controllers
 {
@@ -31,10 +32,13 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
     {
         public void SignIn()
         {
+            // Specify the scopes we need to satisfy in the challenge, space-separated.
+            Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, CalendarController.ReadScope.ToString() } };
+
             // Send an OpenID Connect sign-in request.
             if (!Request.IsAuthenticated)
             {
-                HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties { RedirectUri = "/" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
+                HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
             }
         }
         public void SignOut()

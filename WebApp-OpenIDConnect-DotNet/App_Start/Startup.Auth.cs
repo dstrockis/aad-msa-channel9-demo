@@ -34,6 +34,7 @@ using System.Net.Http;
 using WebApp_OpenIDConnect_DotNet.Utils;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using System.Security.Claims;
+using WebApp_OpenIDConnect_DotNet.App_Start;
 
 namespace WebApp_OpenIDConnect_DotNet
 {
@@ -42,8 +43,7 @@ namespace WebApp_OpenIDConnect_DotNet
         public static string clientId = ConfigurationManager.AppSettings["ida:ClientId"];
         public static string clientSecret = ConfigurationManager.AppSettings["ida:ClientSecret"];
         public static string aadInstance = ConfigurationManager.AppSettings["ida:AADInstance"];
-        private static string postLogoutRedirectUri = ConfigurationManager.AppSettings["ida:PostLogoutRedirectUri"];
-        public static string[] outlookScopes = new[] { "https://outlook.office.com/Mail.Read" };
+        private static string redirectUri = ConfigurationManager.AppSettings["ida:RedirectUri"];
 
         public void ConfigureAuth(IAppBuilder app)
         {
@@ -51,62 +51,50 @@ namespace WebApp_OpenIDConnect_DotNet
 
             app.UseCookieAuthentication(new CookieAuthenticationOptions());
 
-            var configManager = new ConfigurationManager<OpenIdConnectConfiguration>("https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration?slice=testslice&msaproxy=true", new HttpClient());
-            var config = configManager.GetConfigurationAsync().Result;
-            config.AuthorizationEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
-
-            app.UseOpenIdConnectAuthentication(
-                new OpenIdConnectAuthenticationOptions
+            OpenIdConnectAuthenticationOptions options = new OpenIdConnectAuthenticationOptions
+            {
+                ClientId = clientId,
+                Authority = String.Format(CultureInfo.InvariantCulture, aadInstance, "common/v2.0"),
+                RedirectUri = redirectUri,
+                Scope = "openid",
+                PostLogoutRedirectUri = redirectUri,
+                TokenValidationParameters = new TokenValidationParameters
                 {
-                    ClientId = clientId,
-                    Authority = String.Format(CultureInfo.InvariantCulture, aadInstance, "common"),
-                    Scope = "openid " + outlookScopes[0],
-                    RedirectUri = postLogoutRedirectUri,
-                    PostLogoutRedirectUri = postLogoutRedirectUri,
-                    Configuration = config,
-                    TokenValidationParameters = new TokenValidationParameters
-                    {
-                        IssuerValidator = ProxyIssuerValidator,
-                        //NameClaimType = JwtRegisteredClaimNames.Email //User.Identity.Name not populated correctly.
-                    },
-                    Notifications = new OpenIdConnectAuthenticationNotifications
-                    {
-                        AuthenticationFailed = OnAuthenticationFailed,
-                        RedirectToIdentityProvider = OnRedirectToIdentityProvider,
-                        AuthorizationCodeReceived = OnAuthorizationCodeReceived
-                    }
-                });
+                    ValidateIssuer = false, // Not a good idea!
+                },
+                Notifications = new OpenIdConnectAuthenticationNotifications
+                {
+                    AuthenticationFailed = OnAuthenticationFailed,
+                    AuthorizationCodeReceived = OnAuthorizationCodeReceived
+                }
+            };
+
+            app.Use(typeof(ConvergenceOIDCMiddleware), app, options);
         }
 
         private async Task OnAuthorizationCodeReceived(AuthorizationCodeReceivedNotification notification)
         {
-            string userObjectId = notification.AuthenticationTicket.Identity.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier").Value;
+            // Get the scopes from the authN properties, which was encoded in the state parameter in the request.
+            string scopeString = null;
+            notification.AuthenticationTicket.Properties.Dictionary.TryGetValue(ConvergenceOIDCHandler.ScopeKey, out scopeString);
+            char[] space = new char[] {' '};
+            string[] scopes = scopeString.Split(space);
+
+            // Get the user's info for caching
+            string userObjectId = notification.AuthenticationTicket.Identity.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier").Value;
             string tenantID = notification.AuthenticationTicket.Identity.FindFirst("http://schemas.microsoft.com/identity/claims/tenantid").Value;
             string authority = String.Format(CultureInfo.InvariantCulture, aadInstance, tenantID);
+
+            // Get an access_token for the scopes on the request (OK b/c we're only using 1 resource)
             ClientCredential cred = new ClientCredential(clientId, clientSecret);
             var authContext = new Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext(authority, new NaiveSessionCache(userObjectId));
-            var authResult = await authContext.AcquireTokenByAuthorizationCodeAsync(notification.Code, new Uri(postLogoutRedirectUri), cred, outlookScopes, "slice=testslice&msaproxy=true&nux=1");
-        }
-
-        private string ProxyIssuerValidator(string issuer, SecurityToken securityToken, TokenValidationParameters validationParameters)
-        {
-            if (issuer.Contains("login.microsoftonline.com"))
-                return issuer;
-            throw new SecurityTokenValidationException("Unrecognized issuer.");
+            var authResult = await authContext.AcquireTokenByAuthorizationCodeAsync(notification.Code, new Uri(redirectUri), cred, scopes);
         }
 
         private Task OnAuthenticationFailed(AuthenticationFailedNotification<OpenIdConnectMessage, OpenIdConnectAuthenticationOptions> notification)
         {
             notification.HandleResponse();
             notification.Response.Redirect("/Error?message=" + notification.Exception.Message);
-            return Task.FromResult(0);
-        }
-
-        private Task OnRedirectToIdentityProvider(RedirectToIdentityProviderNotification<OpenIdConnectMessage, OpenIdConnectAuthenticationOptions> notification)
-        {
-            notification.ProtocolMessage.SetParameter("nux", "1");
-            notification.ProtocolMessage.SetParameter("msaproxy", "true");
-            notification.ProtocolMessage.SetParameter("slice", "testslice");
             return Task.FromResult(0);
         }
     }

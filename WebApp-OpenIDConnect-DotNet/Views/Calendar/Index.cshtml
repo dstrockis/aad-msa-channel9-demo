@@ -1,0 +1,64 @@
+﻿
+@{
+    ViewBag.Title = "Mail";
+}
+
+<h2>Office 365 Calendar API</h2>
+
+<form action="/Calendar/AddEvent" method="post">
+    
+    <h4>Add a 1-Hour Event This Week:</h4>
+
+    @Html.DropDownList("Day", new List<SelectListItem> {
+       new SelectListItem  { Text = "Sunday", Value = "2015-07-26" },
+       new SelectListItem  { Text = "Monday", Value = "2015-07-27" },
+       new SelectListItem  { Text = "Tuesday", Value = "2015-07-28" },
+       new SelectListItem  { Text = "Wednesday", Value = "2015-07-29" },
+       new SelectListItem  { Text = "Thursday", Value = "2015-07-30" },
+       new SelectListItem  { Text = "Friday", Value = "2015-07-31" },
+       new SelectListItem  { Text = "Saturday", Value = "2015-08-01" },
+    }, "Select a Day...", null)
+
+    @Html.DropDownList("Time", new List<SelectListItem> {
+       new SelectListItem  { Text = "9 AM", Value = 16 },
+       new SelectListItem  { Text = "10 AM", Value = 17 },
+       new SelectListItem  { Text = "11 AM", Value = 18 },
+       new SelectListItem  { Text = "12 PM", Value = 19 },
+       new SelectListItem  { Text = "1 PM", Value = 20 },
+       new SelectListItem  { Text = "2 PM", Value = 21 },
+       new SelectListItem  { Text = "3 PM", Value = 22 },
+    }, "Select a Day...", null)
+
+    @Html.TextBox("Title")
+
+    <input type="submit" value="Add" />
+
+</form>
+
+@if (ViewBag.AuthError == true)
+{
+    <p style="color:red">You need to grant permission for us to write to your calendar first.  @Html.ActionLink("Click here.", "GetConsent", "Calendar", new { write = true }, null)</p>
+}
+else 
+{
+    <br />
+}
+
+<table class="table table-striped table-bordered table-condensed table-hover">
+    <tr>
+        <th class="claim-type claim-data claim-head">From</th>
+        <th class="claim-data claim-head">Subject</th>
+        <th class="claim-data claim-head">Sent</th>
+        <th class="claim-data claim-head">Preview</th>
+    </tr>
+
+    @foreach (Newtonsoft.Json.Linq.JObject mail in ViewBag.Mails)
+    {
+        <tr>
+            <td class="claim-type claim-data">@((string)mail["From"]["EmailAddress"]["Name"])</td>
+            <td class="claim-data">@((string)mail["Subject"])</td>
+            <td class="claim-data">@((string)mail["DateTimeSent"])</td>
+            <td class="claim-data">@((string)mail["BodyPreview"] + "...")</td>
+        </tr>
+    }
+</table>
