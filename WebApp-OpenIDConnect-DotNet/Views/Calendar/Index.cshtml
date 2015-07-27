@@ -20,16 +20,16 @@
     }, "Select a Day...", null)
 
     @Html.DropDownList("Time", new List<SelectListItem> {
-       new SelectListItem  { Text = "9 AM", Value = 16 },
-       new SelectListItem  { Text = "10 AM", Value = 17 },
-       new SelectListItem  { Text = "11 AM", Value = 18 },
-       new SelectListItem  { Text = "12 PM", Value = 19 },
-       new SelectListItem  { Text = "1 PM", Value = 20 },
-       new SelectListItem  { Text = "2 PM", Value = 21 },
-       new SelectListItem  { Text = "3 PM", Value = 22 },
-    }, "Select a Day...", null)
+       new SelectListItem  { Text = "9 AM", Value = "16" },
+       new SelectListItem  { Text = "10 AM", Value = "17" },
+       new SelectListItem  { Text = "11 AM", Value = "18" },
+       new SelectListItem  { Text = "12 PM", Value = "19" },
+       new SelectListItem  { Text = "1 PM", Value = "20" },
+       new SelectListItem  { Text = "2 PM", Value = "21" },
+       new SelectListItem  { Text = "3 PM", Value = "22" },
+    }, "Select a Time...", null)
 
-    @Html.TextBox("Title")
+    @Html.TextBox("Title", "")
 
     <input type="submit" value="Add" />
 
@@ -48,17 +48,26 @@ else
     <tr>
         <th class="claim-type claim-data claim-head">From</th>
         <th class="claim-data claim-head">Subject</th>
-        <th class="claim-data claim-head">Sent</th>
-        <th class="claim-data claim-head">Preview</th>
+        <th class="claim-data claim-head">Day</th>
+        <th class="claim-data claim-head">Start</th>
+        <th class="claim-data claim-head">End</th>
     </tr>
 
-    @foreach (Newtonsoft.Json.Linq.JObject mail in ViewBag.Mails)
+    @foreach (Newtonsoft.Json.Linq.JObject item in ViewBag.Events)
     {
+        var startString = (string)item["Start"];
+        var endString = (string)item["End"];
+        var startDate = startString.Substring(0, 10);
+        var endDate = endString.Substring(0, 10);
+        var startTime = (Int32.Parse(startString.Substring(11, 2))-7).ToString() + startString.Substring(13, 3);
+        var endTime = (Int32.Parse(endString.Substring(11, 2))-7).ToString() + endString.Substring(13, 3);
+    
         <tr>
-            <td class="claim-type claim-data">@((string)mail["From"]["EmailAddress"]["Name"])</td>
-            <td class="claim-data">@((string)mail["Subject"])</td>
-            <td class="claim-data">@((string)mail["DateTimeSent"])</td>
-            <td class="claim-data">@((string)mail["BodyPreview"] + "...")</td>
+            <td class="claim-type claim-data">@((string)item["Organizer"]["EmailAddress"]["Address"])</td>
+            <td class="claim-data">@((string)item["Subject"])</td>
+            <td class="claim-data">@(startDate)</td>
+            <td class="claim-data">@(startTime)</td>
+            <td class="claim-data">@(endTime)</td>
         </tr>
     }
 </table>

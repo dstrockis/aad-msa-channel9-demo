@@ -33,7 +33,7 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
         public void SignIn()
         {
             // Specify the scopes we need to satisfy in the challenge, space-separated.
-            Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, CalendarController.ReadScope.ToString() } };
+            Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, CalendarController.ReadScope[0] } };
 
             // Send an OpenID Connect sign-in request.
             if (!Request.IsAuthenticated)

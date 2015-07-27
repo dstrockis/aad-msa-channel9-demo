@@ -6,30 +6,31 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using System.Web.Script.Serialization;
 using WebApp_OpenIDConnect_DotNet.App_Start;
 using WebApp_OpenIDConnect_DotNet.Utils;
 
 namespace WebApp_OpenIDConnect_DotNet.Controllers
 {
-    //[Authorize]
+    [Authorize]
     public class CalendarController : Controller
     {
         public static string[] ReadScope = new[] { "https://outlook.office.com/calendars.read" };
-        public static string[] WriteScope = new[] { "https://outlook.office.com/calendars.write" };
+        public static string[] WriteScope = new[] { "https://outlook.office.com/calendars.readwrite" };
 
         // GET: Calendar
-        public async Task<ActionResult> Index(bool authError)
+        public async Task<ActionResult> Index(string authError)
         {
-            return View();
-
             AuthenticationResult result = null;
 
             try
@@ -50,11 +51,15 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
 
                 if (response.IsSuccessStatusCode)
                 {
-                    ViewBag.AuthError = authError;
+                    ViewBag.AuthError = true;
+                    if (string.IsNullOrEmpty(authError))
+                    {
+                        ViewBag.AuthError = false;
+                    }
                     String responseString = await response.Content.ReadAsStringAsync();
                     JObject mailResponse = JObject.Parse(responseString);
                     JArray messages = mailResponse["value"] as JArray;
-                    ViewBag.Mails = messages;
+                    ViewBag.Events = messages;
                     return View();
                 }
 
@@ -74,16 +79,16 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
         public void GetConsent(bool write)
         {
             // Specify the scopes we need to satisfy in the challenge, space-separated.
-            string scopes = ReadScope.ToString();
+            string scopes = ReadScope[0];
             if (write)
             {
-                scopes += " " + WriteScope.ToString();
+                scopes += " " + WriteScope[0];
             }
             Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, scopes } };
             HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/Calendar" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
         }
 
-        public async Task<ActionResult> AddEvent(string Day, int Time, string Title)
+        public async Task<ActionResult> AddEvent(string Day, string Time, string Title)
         {
             AuthenticationResult result = null;
 
@@ -97,18 +102,19 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
                 ClientCredential credential = new ClientCredential(Startup.clientId, Startup.clientSecret);
                 result = await authContext.AcquireTokenSilentAsync(WriteScope, credential, UserIdentifier.AnyUser);
 
-
-                // Forms encode event
-                HttpContent content = new FormUrlEncodedContent(new[] { 
-                    new KeyValuePair<string, string>("Subject", Title),
-                    new KeyValuePair<string, string>("Start", Day + "T" + Time.ToString() + ":00:00Z"),
-                    new KeyValuePair<string, string>("End", Day + "T" + (Time+1).ToString() + ":00:00Z"),
+                // Create POST Data
+                int time = Int32.Parse(Time);
+                string json = new JavaScriptSerializer().Serialize(new
+                {
+                    Subject = Title,
+                    Start = Day + "T" + time.ToString() + ":00:00Z",
+                    End = Day + "T" + (time + 1).ToString() + ":00:00Z"
                 });
-
+                
                 HttpClient client = new HttpClient();
                 HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://outlook.office.com/api/v1.0/me/events");
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", result.Token);
-                request.Content = content;
                 HttpResponseMessage response = await client.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
