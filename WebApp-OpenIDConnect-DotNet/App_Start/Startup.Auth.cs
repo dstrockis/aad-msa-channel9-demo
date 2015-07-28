@@ -45,6 +45,8 @@ namespace WebApp_OpenIDConnect_DotNet
         public static string aadInstance = ConfigurationManager.AppSettings["ida:AADInstance"];
         private static string redirectUri = ConfigurationManager.AppSettings["ida:RedirectUri"];
 
+
+        //TODO - Set up Sign In with Both MSA & AAD
         public void ConfigureAuth(IAppBuilder app)
         {
             app.SetDefaultSignInAsAuthenticationType(CookieAuthenticationDefaults.AuthenticationType);
@@ -71,6 +73,14 @@ namespace WebApp_OpenIDConnect_DotNet
 
             app.Use(typeof(ConvergenceOIDCMiddleware), app, options);
         }
+
+
+
+
+
+
+
+
 
         private async Task OnAuthorizationCodeReceived(AuthorizationCodeReceivedNotification notification)
         {

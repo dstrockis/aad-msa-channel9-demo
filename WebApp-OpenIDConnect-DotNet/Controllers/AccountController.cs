@@ -32,20 +32,11 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
     {
         public void SignIn()
         {
+            HttpContext.GetOwinContext().Authentication.SignOut(CookieAuthenticationDefaults.AuthenticationType);
+
             // Specify the scopes we need to satisfy in the challenge, space-separated.
             Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, CalendarController.ReadScope[0] } };
-
-            // Send an OpenID Connect sign-in request.
-            if (!Request.IsAuthenticated)
-            {
-                HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
-            }
-        }
-        public void SignOut()
-        {
-            // Send an OpenID Connect sign-out request.
-            HttpContext.GetOwinContext().Authentication.SignOut(
-                OpenIdConnectAuthenticationDefaults.AuthenticationType, CookieAuthenticationDefaults.AuthenticationType);
+            HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
         }
 	}
 }

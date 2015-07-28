@@ -22,7 +22,6 @@ using WebApp_OpenIDConnect_DotNet.Utils;
 
 namespace WebApp_OpenIDConnect_DotNet.Controllers
 {
-    [Authorize]
     public class CalendarController : Controller
     {
         public static string[] ReadScope = new[] { "https://outlook.office.com/calendars.read" };
@@ -31,6 +30,16 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
         // GET: Calendar
         public async Task<ActionResult> Index(string authError)
         {
+            if (!Request.IsAuthenticated)
+            {
+                // Specify the scopes we need to satisfy in the challenge, space-separated.
+                Dictionary<string, string> scopeDict = new Dictionary<string, string>() { { ConvergenceOIDCHandler.ScopeKey, ReadScope[0] } };
+                HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/Calendar" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
+                return new HttpUnauthorizedResult();
+            }
+
+
+            // TODO - Get Tokens, Call O365
             AuthenticationResult result = null;
 
             try
@@ -76,6 +85,14 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
 
         }
 
+
+
+
+
+
+
+        // TODO - Challenge for more consent!
+        [Authorize]
         public void GetConsent(bool write)
         {
             // Specify the scopes we need to satisfy in the challenge, space-separated.
@@ -88,6 +105,12 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
             HttpContext.GetOwinContext().Authentication.Challenge(new AuthenticationProperties(scopeDict) { RedirectUri = "/Calendar" }, OpenIdConnectAuthenticationDefaults.AuthenticationType);
         }
 
+
+
+
+
+        // TODO - The same token acquisition & O365 Call
+        [Authorize]
         public async Task<ActionResult> AddEvent(string Day, string Time, string Title)
         {
             AuthenticationResult result = null;
